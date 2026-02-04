@@ -18,6 +18,8 @@ dependencies = [
     "numpy<2",
     "imageio[ffmpeg]",
     "opencv-python",
+    "trimesh",
+    "pyrender",
 ]
 
 [tool.setuptools]
