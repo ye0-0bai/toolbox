@@ -11,3 +11,14 @@ requires-python = ">=3.8"
 authors = [
     { name = "yebai", email = "704535747@qq.com" }
 ]
+
+dependencies = [
+    "tqdm",
+    "h5py",
+    "numpy<2",
+    "imageio[ffmpeg]",
+    "opencv-python",
+]
+
+[tool.setuptools]
+packages = ["toolbox"]
