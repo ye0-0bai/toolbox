@@ -4,6 +4,7 @@ from typing import Callable, Optional, List
 from tqdm import tqdm
 import numpy as np
 import imageio.v3 as iio
+import cv2
 import trimesh
 import pyrender
 
@@ -166,3 +167,76 @@ def render_mesh_on_video(video, mesh, poses, K, use_texture=True, verbose=True):
     # 6. Restore original dimensions
     result = np.stack(output_frames, axis=0)
     return result if is_video else result[0]
+
+def annotate_video_segments(video, segment_ends):
+    """
+    Annotate segment label on the video.
+    The video is resized to 480px width and calculates a bar height that ensures 
+    the total height is a multiple of 16 to avoid FFmpeg macroblock warnings.
+    
+    Args:
+        video (np.ndarray): Input video with shape (T, H, W, 3).
+        segment_ends (np.ndarray): Frame indices where each segment ends. The last one should equal to the length of video.
+        
+    Returns:
+        np.ndarray: Resized and annotated video.
+    """
+    T, H, W, C = video.shape
+    
+    # 1. Standardized width (480 is divisible by 16)
+    target_w = 480
+    aspect_ratio = H / W
+    target_h = int(target_w * aspect_ratio)
+    
+    # 2. Calculate adaptive bar height to satisfy (target_h + bar_height) % 16 == 0
+    # We want a base bar height of at least 40px
+    base_bar_height = 40
+    min_total_h = target_h + base_bar_height
+    
+    # Find the next multiple of 16 for total height
+    final_total_h = ((min_total_h + 15) // 16) * 16
+    bar_height = final_total_h - target_h
+    
+    # 3. Setup drawing parameters
+    font_scale = 0.6
+    thickness = 1
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    
+    # 4. Initialize the output array
+    annotated_video = np.zeros((T, final_total_h, target_w, C), dtype=np.uint8)
+    
+    # 5. Prepare segments
+    ends = list(segment_ends)
+    starts = [0] + ends[:-1]
+    
+    for i, (start_idx, end_idx) in enumerate(zip(starts, ends)):
+        label = f"segment {i}"
+        
+        # Center the text in the newly calculated bar_height
+        text_size = cv2.getTextSize(label, font, font_scale, thickness)[0]
+        text_x = (target_w - text_size[0]) // 2
+        text_y = (bar_height + text_size[1]) // 2
+        
+        curr_start = max(0, int(start_idx))
+        curr_end = min(T, int(end_idx))
+        
+        for t in range(curr_start, curr_end):
+            # Upscale frame
+            resized_frame = cv2.resize(video[t], (target_w, target_h), interpolation=cv2.INTER_NEAREST)
+            
+            # Place frame below the adaptive bar
+            annotated_video[t, bar_height:, :, :] = resized_frame
+            
+            # Draw label
+            cv2.putText(
+                annotated_video[t],
+                label,
+                (text_x, text_y),
+                font,
+                font_scale,
+                (255, 255, 255),
+                thickness,
+                cv2.LINE_AA
+            )
+            
+    return annotated_video

@@ -1,1 +1,1 @@
-from .image_processing import images_to_video, render_mesh_on_video
+from .image_processing import images_to_video, render_mesh_on_video, annotate_video_segments
